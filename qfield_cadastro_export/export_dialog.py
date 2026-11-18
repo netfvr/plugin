@@ -64,11 +64,16 @@ except AttributeError:
     ICON_INFO = QMessageBox.Information
 
 
+def exec_dialog(dialog):
+    run = getattr(dialog, 'exec', None) or getattr(dialog, 'exec_', None)
+    return run()
+
+
 class ExportDialog(QDialog):
     def __init__(self, iface, parent=None):
         super().__init__(parent)
         self.iface = iface
-        self.setWindowTitle('Exportar cadastro para o QField')
+        self.setWindowTitle('Exportar cadastro para o QField (v1.0.4)')
         self.setMinimumWidth(560)
         self._build_ui()
         self._populate_layers()
@@ -252,7 +257,7 @@ class ExportDialog(QDialog):
                 box.setWindowTitle('QField Cadastro Export')
                 box.setText(msg)
                 box.setDetailedText('\n'.join(result['warnings']))
-                box.exec_()
+                exec_dialog(box)
             else:
                 QMessageBox.information(self, 'QField Cadastro Export', msg)
             self.accept()

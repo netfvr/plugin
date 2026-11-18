@@ -3,7 +3,7 @@ import os
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
-from .export_dialog import ExportDialog
+from .export_dialog import ExportDialog, exec_dialog
 
 MENU_NAME = '&QField Cadastro Export'
 
@@ -29,7 +29,4 @@ class QFieldCadastroExport:
 
     def run(self):
         dlg = ExportDialog(self.iface, self.iface.mainWindow())
-        if hasattr(dlg, 'exec_'):
-            dlg.exec_()
-        else:
-            dlg.exec()
+        exec_dialog(dlg)
