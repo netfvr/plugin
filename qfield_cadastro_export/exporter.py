@@ -40,9 +40,12 @@ def _disable_labels_on_settings(settings):
             continue
     return ok
 
-PLUGIN_VERSION = '1.1.6'
+PLUGIN_VERSION = '1.2.0'
 
 LOCAL_PROVIDERS = {'ogr', 'gdal', 'delimitedtext'}
+
+CAD_EXTENSIONS = ('.dxf', '.dwg', '.dgn')
+LABEL_LAYER_PATTERN = re.compile(r'(?i)(\blabel\b|\btexto\b|\bannotations?\b)')
 
 ICON_LAYER_SPECS = (
     ('QgsSvgMarkerSymbolLayer', 'path', 'setPath'),
@@ -71,7 +74,7 @@ def _unique_name(base, used):
 class Exporter:
     def __init__(self, project, layers, out_dir, copy_data=True,
                  remove_labels=True, remove_annotations=True, create_zip=True,
-                 compact=True):
+                 compact=True, drop_label_layers=True):
         self.project = project
         self.layers = layers
         self.out_dir = out_dir
@@ -80,8 +83,8 @@ class Exporter:
         self.remove_annotations = remove_annotations
         self.create_zip = create_zip
         self.compact = compact
+        self.drop_label_layers = drop_label_layers
         self._gpkg_path = None
-        self._gpkg_new = True
         self._icon_names = set()
         self.warnings = []
         self.clones = {}
@@ -163,6 +166,11 @@ class Exporter:
         for layer in self.layers:
             if layer is None:
                 continue
+            if self.drop_label_layers and LABEL_LAYER_PATTERN.search(layer.name() or ''):
+                self.warnings.append(
+                    'Camada de texto/etiquetas CAD "' + layer.name()
+                    + '" excluida (opcao de excluir subcamadas de labels ativa).')
+                continue
             if layer.type() == LayerType.AnnotationLayer:
                 if self.remove_annotations:
                     self.warnings.append(
@@ -194,8 +202,10 @@ class Exporter:
                 pass
             elif provider_name in LOCAL_PROVIDERS:
                 if self.copy_data:
+                    is_cad = self._is_cad_source(clone)
                     converted = False
-                    if self.compact and clone.type() == LayerType.VectorLayer:
+                    if self.compact and not is_cad \
+                            and clone.type() == LayerType.VectorLayer:
                         converted = self._compact_layer(clone, data_dir)
                     if not converted:
                         self._relocate_layer(clone, provider_name, data_dir, used_names)
@@ -463,6 +473,16 @@ class Exporter:
                     layer.setLabeling(labelings_cls(settings))
         except Exception:
             pass
+
+    @staticmethod
+    def _is_cad_source(clone):
+        try:
+            path = Exporter._extract_file_path(
+                clone.dataProvider().name() if clone.dataProvider() else '',
+                clone.source())
+            return path.lower().endswith(CAD_EXTENSIONS)
+        except Exception:
+            return False
 
     def _compact_layer(self, clone, data_dir):
         try:

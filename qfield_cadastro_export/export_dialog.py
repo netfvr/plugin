@@ -73,7 +73,7 @@ class ExportDialog(QDialog):
     def __init__(self, iface, parent=None):
         super().__init__(parent)
         self.iface = iface
-        self.setWindowTitle('Exportar cadastro para o QField (v1.1.6)')
+        self.setWindowTitle('Exportar cadastro para o QField (v1.2.0)')
         self.setMinimumWidth(560)
         self._build_ui()
         self._populate_layers()
@@ -111,9 +111,13 @@ class ExportDialog(QDialog):
         self.chk_compact = QCheckBox(
             'Converter cada camada vetorial para o seu próprio GeoPackage (mais estável no QField)')
         self.chk_compact.setChecked(True)
+        self.chk_drop_label_layers = QCheckBox(
+            'Excluir camadas de texto/etiquetas de CAD (ex.: "Geo Label")')
+        self.chk_drop_label_layers.setChecked(True)
         layout.addWidget(self.chk_copy_data)
         layout.addWidget(self.chk_remove_labels)
         layout.addWidget(self.chk_remove_ann)
+        layout.addWidget(self.chk_drop_label_layers)
         layout.addWidget(self.chk_create_zip)
         layout.addWidget(self.chk_compact)
 
@@ -133,6 +137,9 @@ class ExportDialog(QDialog):
             'Copia ficheiros locais (shapefile, GeoPackage, raster, CSV) para a pasta data/.')
         self.chk_remove_ann.setToolTip(
             'Exclui camadas de anotações do projeto exportado.')
+        self.chk_drop_label_layers.setToolTip(
+            'Exclui subcamadas de texto CAD (DXF/DGN) como "Fiber Cable Geo Label" \u2014 s\u00e3o '
+            'elas que aparecem como etiquetas fixas no QField.')
         self.chk_compact.setToolTip(
             'Cada camada vira um ficheiro GeoPackage próprio na pasta data/ — as camadas '
             'mantêm-se separadas e a estrutura de grupos fica igual ao QGIS.')
@@ -243,6 +250,7 @@ class ExportDialog(QDialog):
             remove_annotations=self.chk_remove_ann.isChecked(),
             create_zip=self.chk_create_zip.isChecked(),
             compact=self.chk_compact.isChecked(),
+            drop_label_layers=self.chk_drop_label_layers.isChecked(),
         )
 
         QApplication.setOverrideCursor(CURSOR_WAIT)
