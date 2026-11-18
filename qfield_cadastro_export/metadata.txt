@@ -1,9 +1,9 @@
 [general]
 name=QField Cadastro Export
 qgisMinimumVersion=3.34
-qgisMaximumVersion=4.0
+qgisMaximumVersion=4.99
 description=Exporta camadas selecionadas para um projeto autonomo compativel com o QField, preservando grupos e simbologia e removendo etiquetas.
-version=1.0.0
+version=1.0.1
 author=Equipa de Cadastro
 email=cadastro@example.com
 about=QField Cadastro Export exporta, a partir de um projeto QGIS, apenas as camadas selecionadas pelo utilizador para uma nova pasta autonoma. O plugin clona as camadas com a simbologia original, copia os ficheiros de dados locais para a pasta de exportacao, converte as referencias em caminhos relativos, recria a hierarquia de grupos e subgrupos e remove as etiquetas (labels) e anotacoes do projeto exportado, ficando pronto a abrir no QField em Android.
@@ -15,5 +15,5 @@ icon=icons/icon.png
 experimental=False
 deprecated=False
 tags=cadastre,qfield,mobile,export,android
-changelog=1.0.0 - Versao inicial: exportacao seletiva, copia de dados, hierarquia de grupos, remocao de etiquetas e anotacoes.
+changelog=1.0.1 - Compatibilidade com QGIS 4.x (incluindo 4.2 Belém do Pará); 1.0.0 - Versao inicial: exportacao seletiva, copia de dados, hierarquia de grupos, remocao de etiquetas e anotacoes.
 

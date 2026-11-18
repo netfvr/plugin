@@ -8,10 +8,16 @@ from qgis.core import (
     QgsDataProvider,
     QgsLayerTreeGroup,
     QgsLayerTreeLayer,
-    QgsMapLayerType,
     QgsPalLayerSettings,
     QgsProject,
 )
+
+try:
+    from qgis.core import Qgis
+    LayerType = Qgis.LayerType
+except ImportError:
+    from qgis.core import QgsMapLayerType
+    LayerType = QgsMapLayerType
 
 LOCAL_PROVIDERS = {'ogr', 'gdal', 'delimitedtext'}
 
@@ -66,7 +72,10 @@ class Exporter:
             new_proj.setCrs(self.project.crs())
             new_proj.setDistanceUnits(self.project.distanceUnits())
             new_proj.setAreaUnits(self.project.areaUnits())
-            new_proj.writeEntry('Paths', '/Absolute', False)
+            try:
+                new_proj.writeEntry('Paths', '/Absolute', False)
+            except Exception:
+                pass
 
             self._prepare_layers(data_dir, new_proj)
             self._rebuild_tree(self.project.layerTreeRoot(), new_proj.layerTreeRoot())
@@ -87,7 +96,7 @@ class Exporter:
         for layer in self.layers:
             if layer is None:
                 continue
-            if layer.type() == QgsMapLayerType.AnnotationLayer:
+            if layer.type() == LayerType.AnnotationLayer:
                 if self.remove_annotations:
                     self.warnings.append(
                         'Camada de anotacoes "' + layer.name() + '" nao foi incluida.')
@@ -115,7 +124,7 @@ class Exporter:
                 self.warnings.append(
                     'Camada "' + layer.name() + '": fonte remota (' + provider_name
                     + ') mantida como referencia externa.')
-            if self.remove_labels and clone.type() == QgsMapLayerType.VectorLayer:
+            if self.remove_labels and clone.type() == LayerType.VectorLayer:
                 clone.setLabelsEnabled(False)
                 clone.setLabeling(QgsPalLayerSettings())
             new_proj.addMapLayer(clone, False)

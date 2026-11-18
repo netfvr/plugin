@@ -1,6 +1,6 @@
-# QField Cadastro Export
+# QField Cadastro Export v1.0.1
 
-Plugin para o QGIS (3.34+) que exporta para o **QField (Android)** apenas as camadas
+Plugin para o QGIS (3.34+ e 4.x, incluindo 4.2 Belém do Pará) que exporta para o **QField (Android)** apenas as camadas
 selecionadas pelo utilizador, num novo projeto **autónomo** (pasta copiável), preservando
 a simbologia original e a hierarquia de grupos, e **removendo etiquetas e anotações**.
 
