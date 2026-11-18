@@ -73,7 +73,7 @@ class ExportDialog(QDialog):
     def __init__(self, iface, parent=None):
         super().__init__(parent)
         self.iface = iface
-        self.setWindowTitle('Exportar cadastro para o QField (v1.1.3)')
+        self.setWindowTitle('Exportar cadastro para o QField (v1.1.4)')
         self.setMinimumWidth(560)
         self._build_ui()
         self._populate_layers()
@@ -260,7 +260,8 @@ class ExportDialog(QDialog):
         if result['ok']:
             msg = ('Exportação concluída com sucesso.\n\nProjeto: '
                    + result['project_path']
-                   + '\nCamadas exportadas: ' + str(result['count']))
+                   + '\nCamadas exportadas: ' + str(result['count'])
+                   + ('\n' + result['summary'] if result.get('summary') else ''))
             if result.get('zip_path'):
                 msg += ('\n\nZIP para o telemóvel:\n' + result['zip_path']
                         + '\n\nEnvie o ZIP para o dispositivo (por ex. via cabo, WhatsApp, '

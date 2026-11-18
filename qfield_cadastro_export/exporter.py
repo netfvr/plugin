@@ -1,3 +1,4 @@
+import datetime
 import glob
 import os
 import re
@@ -38,6 +39,8 @@ def _disable_labels_on_settings(settings):
         except Exception:
             continue
     return ok
+
+PLUGIN_VERSION = '1.1.4'
 
 LOCAL_PROVIDERS = {'ogr', 'gdal', 'delimitedtext'}
 
@@ -90,6 +93,7 @@ class Exporter:
             'export_dir': '',
             'project_path': '',
             'zip_path': '',
+            'summary': '',
             'warnings': self.warnings,
             'error': '',
         }
@@ -132,6 +136,8 @@ class Exporter:
                 raise RuntimeError('Falha ao gravar o projeto: ' + qgs_path)
             if self.remove_labels:
                 self._purge_labels_from_project(qgs_path)
+            self._self_check(qgs_path)
+            self._write_log(export_dir)
             zip_path = ''
             if self.create_zip:
                 try:
@@ -146,6 +152,7 @@ class Exporter:
             result['project_path'] = qgs_path
             result['zip_path'] = zip_path
             result['count'] = len(self.clones)
+            result['summary'] = str(getattr(self, 'check_summary', ''))
         except Exception as err:
             result['error'] = str(err)
         return result
@@ -219,6 +226,56 @@ class Exporter:
         except Exception as err:
             self.warnings.append(
                 'Nao foi possivel retirar etiquetas do XML final (' + str(err) + ').')
+
+    def _self_check(self, qgs_path):
+        try:
+            check = QgsProject()
+            check.read(qgs_path)
+            layers = list(check.mapLayers().values())
+            invalid = [l.name() for l in layers if not l.isValid()]
+            tree = check.layerTreeRoot()
+            counts = {'groups': 0, 'layers': 0}
+
+            def walk(node):
+                for child in node.children():
+                    if isinstance(child, QgsLayerTreeGroup):
+                        counts['groups'] += 1
+                        walk(child)
+                    else:
+                        counts['layers'] += 1
+
+            walk(tree)
+            self.check_summary = ('releitura OK: ' + str(len(layers))
+                                  + ' camadas (' + str(len(invalid)) + ' invalidas), '
+                                  + str(counts['groups']) + ' grupos, '
+                                  + str(counts['layers']) + ' nos na arvore')
+            if len(layers) != len(self.clones):
+                self.warnings.append(
+                    'AVISO: projeto exportado tem ' + str(len(layers))
+                    + ' camadas, esperadas ' + str(len(self.clones))
+                    + '. A estrutura pode ter divergido.')
+            if invalid:
+                self.warnings.append(
+                    'AVISO: ' + str(len(invalid))
+                    + ' camada(s) INVALIDA(S): ' + ', '.join(invalid))
+        except Exception as err:
+            self.warnings.append('Auto-verificacao nao concluida (' + str(err) + ').')
+
+    def _write_log(self, export_dir):
+        try:
+            lines = ['QField Cadastro Export v' + PLUGIN_VERSION,
+                     'Data: ' + str(datetime.datetime.now()),
+                     'Camadas exportadas: ' + str(len(self.clones)),
+                     'Compacto: ' + str(self.compact) + ' | Copiar dados: '
+                     + str(self.copy_data) + ' | Sem labels: ' + str(self.remove_labels),
+                     'Resumo: ' + str(getattr(self, 'check_summary', '')),
+                     'Avisos (' + str(len(self.warnings)) + '):']
+            lines.extend('- ' + w for w in self.warnings)
+            with open(os.path.join(export_dir, 'export_log.txt'), 'w',
+                      encoding='utf-8') as fh:
+                fh.write('\n'.join(lines))
+        except Exception:
+            pass
 
     def _export_layer_icons(self, clone, data_dir):
         try:
