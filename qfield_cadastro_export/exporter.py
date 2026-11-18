@@ -60,7 +60,12 @@ class Exporter:
             'error': '',
         }
         try:
-            project_name = self.project.projectName() or 'projeto'
+            get_name = getattr(self.project, 'title', None)
+            project_name = (get_name() if get_name else '')
+            if not project_name:
+                get_name = getattr(self.project, 'projectName', None)
+                project_name = (get_name() if get_name else '')
+            project_name = project_name or 'projeto'
             safe = re.sub(r'[^A-Za-z0-9_\-]+', '_', project_name).strip('_') or 'projeto'
             export_dir = os.path.join(self.out_dir, safe + '_qfield')
             data_dir = os.path.join(export_dir, 'data')
@@ -70,8 +75,11 @@ class Exporter:
             new_proj = QgsProject()
             new_proj.setTitle(project_name)
             new_proj.setCrs(self.project.crs())
-            new_proj.setDistanceUnits(self.project.distanceUnits())
-            new_proj.setAreaUnits(self.project.areaUnits())
+            try:
+                new_proj.setDistanceUnits(self.project.distanceUnits())
+                new_proj.setAreaUnits(self.project.areaUnits())
+            except Exception:
+                pass
             try:
                 new_proj.writeEntry('Paths', '/Absolute', False)
             except Exception:
