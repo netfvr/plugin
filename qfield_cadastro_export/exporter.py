@@ -281,26 +281,12 @@ class Exporter:
 
     def _compact_layer(self, clone, data_dir):
         try:
-            if self._gpkg_path is None:
-                self._gpkg_path = os.path.join(data_dir, 'dados_qfield.gpkg')
             clean = re.sub(r'[^A-Za-z0-9_]+', '_', clone.name()).strip('_') or 'camada'
             if clean[0].isdigit():
                 clean = 'L' + clean
-            base_clean = clean
-            n = 1
-            existing = ()
-            try:
-                from qgis.core import ogr
-                ds = ogr.Open(self._gpkg_path) if os.path.exists(self._gpkg_path) else None
-                if ds is not None:
-                    existing = [ds.GetLayerByIndex(i).GetName()
-                                for i in range(ds.GetLayerCount())]
-                    ds = None
-                while clean in existing:
-                    n += 1
-                    clean = '{}_{}'.format(base_clean, n)
-            except Exception:
-                pass
+            clean = clean[:60]
+            gpkg_name = self._unique_gpkg_file(clean, data_dir)
+            self._gpkg_path = os.path.join(data_dir, gpkg_name)
             options = QgsVectorFileWriter.SaveVectorOptions()
             options.driverName = 'GPKG'
             options.layerName = clean
@@ -308,9 +294,7 @@ class Exporter:
                 action_cls = getattr(QgsVectorFileWriter, 'ActionOnExistingFile', None)
                 if action_cls is None:
                     action_cls = QgsVectorFileWriter
-                options.actionOnExistingFile = (action_cls.CreateOrOverwriteFile
-                                                if self._gpkg_new
-                                                else action_cls.CreateOrOverwriteLayer)
+                options.actionOnExistingFile = action_cls.CreateOrOverwriteFile
             except Exception:
                 options.actionOnExistingFile = getattr(QgsVectorFileWriter,
                                                        'CreateOrOverwriteFile', None)
@@ -329,10 +313,9 @@ class Exporter:
                     'Camada "' + clone.name() + '": conversao para GeoPackage devolveu erro ('
                     + str(err_code) + '); dados copiados em formato original.')
                 return False
-            self._gpkg_new = False
             export_dir = os.path.dirname(data_dir)
             rel_gpkg = os.path.join(os.path.relpath(data_dir, export_dir),
-                                    'dados_qfield.gpkg').replace('\\', '/')
+                                    gpkg_name).replace('\\', '/')
             options_ds = QgsDataProvider.ProviderOptions()
             clone.setDataSource(rel_gpkg + '|layername=' + clean,
                                 clone.name(), 'ogr', options_ds, False)
@@ -346,6 +329,16 @@ class Exporter:
                 'Camada "' + clone.name() + '": modo compacto falhou (' + str(err)
                 + '); usado formato original.')
             return False
+
+    @staticmethod
+    def _unique_gpkg_file(clean, data_dir):
+        name = clean + '.gpkg'
+        stem, ext = os.path.splitext(name)
+        n = 1
+        while os.path.exists(os.path.join(data_dir, name)):
+            n += 1
+            name = '{}_{}{}'.format(stem, n, ext)
+        return name
 
     def _relocate_layer(self, clone, provider_name, data_dir, used_names):
         src = clone.source()

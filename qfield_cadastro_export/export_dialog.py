@@ -73,7 +73,7 @@ class ExportDialog(QDialog):
     def __init__(self, iface, parent=None):
         super().__init__(parent)
         self.iface = iface
-        self.setWindowTitle('Exportar cadastro para o QField (v1.1.0)')
+        self.setWindowTitle('Exportar cadastro para o QField (v1.1.1)')
         self.setMinimumWidth(560)
         self._build_ui()
         self._populate_layers()
@@ -109,7 +109,7 @@ class ExportDialog(QDialog):
         self.chk_create_zip = QCheckBox('Gerar ficheiro ZIP único para upload no telemóvel')
         self.chk_create_zip.setChecked(True)
         self.chk_compact = QCheckBox(
-            'Modo compacto: guardar todos os vetores num único GeoPackage (recomendado para o telemóvel)')
+            'Converter cada camada vetorial para o seu próprio GeoPackage (mais estável no QField)')
         self.chk_compact.setChecked(True)
         layout.addWidget(self.chk_copy_data)
         layout.addWidget(self.chk_remove_labels)
@@ -134,7 +134,8 @@ class ExportDialog(QDialog):
         self.chk_remove_ann.setToolTip(
             'Exclui camadas de anotações do projeto exportado.')
         self.chk_compact.setToolTip(
-            'Consolida todos os vetores num único GeoPackage — menos ficheiros e menos crashs no QField.')
+            'Cada camada vira um ficheiro GeoPackage próprio na pasta data/ — as camadas '
+            'mantêm-se separadas e a estrutura de grupos fica igual ao QGIS.')
 
         actions = QHBoxLayout()
         actions.addStretch(1)
