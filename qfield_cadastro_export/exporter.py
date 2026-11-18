@@ -40,7 +40,7 @@ def _disable_labels_on_settings(settings):
             continue
     return ok
 
-PLUGIN_VERSION = '1.1.4'
+PLUGIN_VERSION = '1.1.5'
 
 LOCAL_PROVIDERS = {'ogr', 'gdal', 'delimitedtext'}
 
@@ -138,6 +138,7 @@ class Exporter:
                 self._purge_labels_from_project(qgs_path)
             self._self_check(qgs_path)
             self._write_log(export_dir)
+            self._write_marker(safe, export_dir)
             zip_path = ''
             if self.create_zip:
                 try:
@@ -226,6 +227,19 @@ class Exporter:
         except Exception as err:
             self.warnings.append(
                 'Nao foi possivel retirar etiquetas do XML final (' + str(err) + ').')
+
+    def _write_marker(self, safe, export_dir):
+        try:
+            with open(os.path.join(export_dir,
+                                   'EXPORTADO_POR_v' + PLUGIN_VERSION + '.txt'),
+                      'w', encoding='utf-8') as fh:
+                fh.write('Projeto: ' + safe + '\n'
+                         'Plugin: QField Cadastro Export v' + PLUGIN_VERSION + '\n'
+                         'Data: ' + str(datetime.datetime.now()) + '\n\n'
+                         'Se este ficheiro nao existir, a pasta foi gerada por uma '
+                         'versao antiga do plugin.\n')
+        except Exception:
+            pass
 
     def _self_check(self, qgs_path):
         try:
