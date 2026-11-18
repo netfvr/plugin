@@ -2,6 +2,7 @@ import glob
 import os
 import re
 import shutil
+import zipfile as _zipfile
 from urllib.parse import quote, unquote, urlparse
 
 from qgis import core as _qgis_core
@@ -129,6 +130,8 @@ class Exporter:
             new_proj.setFileName(qgs_path)
             if not new_proj.write(qgs_path):
                 raise RuntimeError('Falha ao gravar o projeto: ' + qgs_path)
+            if self.remove_labels:
+                self._purge_labels_from_project(qgs_path)
             zip_path = ''
             if self.create_zip:
                 try:
@@ -196,6 +199,26 @@ class Exporter:
                 self._disable_labels(clone)
             new_proj.addMapLayer(clone, False)
             self.clones[layer] = clone
+
+    def _purge_labels_from_project(self, qgs_path):
+        try:
+            with open(qgs_path, 'r', encoding='utf-8') as fh:
+                content = fh.read()
+            original = content
+            patterns = (
+                re.compile(r'<labeling\b[^>]*>.*?</labeling>', re.S),
+                re.compile(r'<labeling\b[^>]*/>'),
+                re.compile(r'\s*labelsEnabled="1"'),
+                re.compile(r'\s*labelsEnabled="true"'),
+            )
+            for pattern in patterns:
+                content = pattern.sub('', content)
+            if content != original:
+                with open(qgs_path, 'w', encoding='utf-8', newline='') as fh:
+                    fh.write(content)
+        except Exception as err:
+            self.warnings.append(
+                'Nao foi possivel retirar etiquetas do XML final (' + str(err) + ').')
 
     def _export_layer_icons(self, clone, data_dir):
         try:
