@@ -29,4 +29,7 @@ class QFieldCadastroExport:
 
     def run(self):
         dlg = ExportDialog(self.iface, self.iface.mainWindow())
-        dlg.exec_()
+        if hasattr(dlg, 'exec_'):
+            dlg.exec_()
+        else:
+            dlg.exec()
