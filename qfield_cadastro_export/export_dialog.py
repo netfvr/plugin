@@ -73,7 +73,7 @@ class ExportDialog(QDialog):
     def __init__(self, iface, parent=None):
         super().__init__(parent)
         self.iface = iface
-        self.setWindowTitle('Exportar cadastro para o QField (v1.0.7)')
+        self.setWindowTitle('Exportar cadastro para o QField (v1.0.8)')
         self.setMinimumWidth(560)
         self._build_ui()
         self._populate_layers()
@@ -106,9 +106,12 @@ class ExportDialog(QDialog):
         self.chk_remove_labels.setChecked(True)
         self.chk_remove_ann = QCheckBox('Remover camadas de anotações (annotations)')
         self.chk_remove_ann.setChecked(True)
+        self.chk_create_zip = QCheckBox('Gerar ficheiro ZIP único para upload no telemóvel')
+        self.chk_create_zip.setChecked(True)
         layout.addWidget(self.chk_copy_data)
         layout.addWidget(self.chk_remove_labels)
         layout.addWidget(self.chk_remove_ann)
+        layout.addWidget(self.chk_create_zip)
 
         out_row = QHBoxLayout()
         out_row.addWidget(QLabel('Pasta de destino:'))
@@ -231,6 +234,7 @@ class ExportDialog(QDialog):
             copy_data=self.chk_copy_data.isChecked(),
             remove_labels=self.chk_remove_labels.isChecked(),
             remove_annotations=self.chk_remove_ann.isChecked(),
+            create_zip=self.chk_create_zip.isChecked(),
         )
 
         QApplication.setOverrideCursor(CURSOR_WAIT)
@@ -248,9 +252,14 @@ class ExportDialog(QDialog):
         if result['ok']:
             msg = ('Exportação concluída com sucesso.\n\nProjeto: '
                    + result['project_path']
-                   + '\nCamadas exportadas: ' + str(result['count'])
-                   + '\n\nCopie a pasta gerada para o dispositivo Android '
-                   + 'e abra o ficheiro .qgs no QField.')
+                   + '\nCamadas exportadas: ' + str(result['count']))
+            if result.get('zip_path'):
+                msg += ('\n\nZIP para o telemóvel:\n' + result['zip_path']
+                        + '\n\nEnvie o ZIP para o dispositivo (por ex. via cabo, WhatsApp, '
+                        + 'e-mail ou Bluetooth), extraia-o no telemóvel e abra o .qgs no QField.')
+            else:
+                msg += ('\n\nCopie a pasta gerada para o dispositivo Android '
+                        + 'e abra o ficheiro .qgs no QField.')
             if result['warnings']:
                 box = QMessageBox(self)
                 box.setIcon(ICON_INFO)

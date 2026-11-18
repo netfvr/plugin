@@ -55,13 +55,14 @@ def _unique_name(base, used):
 
 class Exporter:
     def __init__(self, project, layers, out_dir, copy_data=True,
-                 remove_labels=True, remove_annotations=True):
+                 remove_labels=True, remove_annotations=True, create_zip=True):
         self.project = project
         self.layers = layers
         self.out_dir = out_dir
         self.copy_data = copy_data
         self.remove_labels = remove_labels
         self.remove_annotations = remove_annotations
+        self.create_zip = create_zip
         self.warnings = []
         self.clones = {}
 
@@ -71,6 +72,7 @@ class Exporter:
             'count': 0,
             'export_dir': '',
             'project_path': '',
+            'zip_path': '',
             'warnings': self.warnings,
             'error': '',
         }
@@ -107,8 +109,19 @@ class Exporter:
             new_proj.setFileName(qgs_path)
             if not new_proj.write(qgs_path):
                 raise RuntimeError('Falha ao gravar o projeto: ' + qgs_path)
+            zip_path = ''
+            if self.create_zip:
+                try:
+                    zip_path = shutil.make_archive(
+                        export_dir, 'zip', root_dir=self.out_dir,
+                        base_dir=os.path.basename(export_dir))
+                except Exception as err:
+                    self.warnings.append(
+                        'Falha ao criar o ficheiro ZIP (' + str(err)
+                        + '); use a pasta gerada.')
             result['ok'] = True
             result['project_path'] = qgs_path
+            result['zip_path'] = zip_path
             result['count'] = len(self.clones)
         except Exception as err:
             result['error'] = str(err)
