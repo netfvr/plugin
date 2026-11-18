@@ -103,6 +103,7 @@ class Exporter:
                 pass
 
             self._prepare_layers(data_dir, new_proj)
+            self._migrate_relations(new_proj)
             self._rebuild_tree(self.project.layerTreeRoot(), new_proj.layerTreeRoot())
 
             qgs_path = os.path.join(export_dir, safe + '.qgs')
@@ -149,6 +150,14 @@ class Exporter:
             if clone is None:
                 self.warnings.append('Camada "' + layer.name() + '" nao pode ser clonada.')
                 continue
+            try:
+                clone.setId(layer.id())
+            except Exception:
+                pass
+            try:
+                clone.setName(layer.name())
+            except Exception:
+                pass
             provider = clone.dataProvider()
             provider_name = provider.name() if provider is not None else ''
             if provider_name == 'memory':
@@ -164,6 +173,52 @@ class Exporter:
                 self._disable_labels(clone)
             new_proj.addMapLayer(clone, False)
             self.clones[layer] = clone
+
+    def _migrate_relations(self, new_proj):
+        try:
+            src_mgr = self.project.relationManager()
+            dst_mgr = new_proj.relationManager()
+        except Exception:
+            return
+        try:
+            relations = list(src_mgr.relations().values())
+        except Exception:
+            return
+        if not relations:
+            return
+        clone_ids = {c.id() for c in self.clones.values()}
+        for rel in relations:
+            try:
+                ref_child = rel.referencingLayerId()
+                ref_parent = rel.referencedLayerId()
+                if ref_child not in clone_ids or ref_parent not in clone_ids:
+                    self.warnings.append(
+                        'Relacao "' + rel.name() + '" nao foi incluida (usa camadas fora da exportacao).')
+                    continue
+                new_rel = type(rel)()
+                try:
+                    new_rel.setId(rel.id())
+                except Exception:
+                    pass
+                try:
+                    new_rel.setName(rel.name())
+                except Exception:
+                    pass
+                new_rel.setReferencingLayer(ref_child)
+                new_rel.setReferencedLayer(ref_parent)
+                try:
+                    for child_field, parent_field in rel.fieldPairs().items():
+                        new_rel.addFieldPair(child_field, parent_field)
+                except Exception:
+                    pass
+                try:
+                    new_rel.setStrength(rel.strength())
+                except Exception:
+                    pass
+                dst_mgr.addRelation(new_rel)
+            except Exception as err:
+                self.warnings.append(
+                    'Relacao "' + rel.name() + '" nao foi migrada (' + str(err) + ').')
 
     def _disable_labels(self, layer):
         try:
@@ -235,6 +290,10 @@ class Exporter:
         export_dir = os.path.dirname(data_dir)
         rel = os.path.join(os.path.relpath(data_dir, export_dir), dest_name)
         rel = rel.replace('\\', '/')
+        try:
+            clone.saveNamedStyle(os.path.splitext(dest_path)[0] + '.qml')
+        except Exception:
+            pass
         if provider_name == 'ogr':
             suffix = src.split('|', 1)[1] if '|' in src else ''
             new_src = rel + ('|' + suffix if suffix else '')
