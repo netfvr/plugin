@@ -21,15 +21,18 @@ except ImportError:
     LayerType = QgsMapLayerType
 
 
-def _simple_labeling(settings):
-    for cls_name in ('QgsBasicVectorLayerLabeling', 'QgsVectorLayerSimpleLabeling'):
-        cls = getattr(_qgis_core, cls_name, None)
-        if cls is not None:
-            try:
-                return cls(settings)
-            except Exception:
-                continue
-    return settings
+def _disable_labels_on_settings(settings):
+    if settings is None:
+        return False
+    ok = False
+    for attr in ('drawLabels', 'enabled'):
+        try:
+            setattr(settings, attr, False)
+            ok = True
+            break
+        except Exception:
+            continue
+    return ok
 
 LOCAL_PROVIDERS = {'ogr', 'gdal', 'delimitedtext'}
 
@@ -145,20 +148,58 @@ class Exporter:
                     'Camada "' + layer.name() + '": fonte remota (' + provider_name
                     + ') mantida como referencia externa.')
             if self.remove_labels and clone.type() == LayerType.VectorLayer:
-                clone.setLabelsEnabled(False)
-                settings = QgsPalLayerSettings()
-                try:
-                    settings.enabled = False
-                except Exception:
-                    pass
-                try:
-                    clone.setLabeling(_simple_labeling(settings))
-                except Exception as err:
-                    self.warnings.append(
-                        'Camada "' + clone.name() + '": etiquetas podem nao ter sido removidas ('
-                        + str(err) + ').')
+                self._disable_labels(clone)
             new_proj.addMapLayer(clone, False)
             self.clones[layer] = clone
+
+    def _disable_labels(self, layer):
+        try:
+            layer.setLabelsEnabled(False)
+        except Exception:
+            pass
+        try:
+            labeling = layer.labeling()
+        except Exception:
+            labeling = None
+        if labeling is None:
+            return
+        try:
+            from qgis.core import QgsVectorLayerSimpleLabeling
+            if isinstance(labeling, QgsVectorLayerSimpleLabeling):
+                settings = labeling.settings()
+                if _disable_labels_on_settings(settings):
+                    labeling.setSettings(settings)
+                    layer.setLabeling(labeling)
+                return
+        except ImportError:
+            pass
+        try:
+            from qgis.core import QgsRuleBasedLabeling
+            if isinstance(labeling, QgsRuleBasedLabeling):
+                def walk(rule):
+                    try:
+                        settings = rule.settings()
+                        if _disable_labels_on_settings(settings):
+                            rule.setSettings(settings)
+                    except Exception:
+                        pass
+                    for sub in rule.children():
+                        walk(sub)
+                walk(labeling.rootRule())
+                layer.setLabeling(labeling)
+                return
+        except ImportError:
+            pass
+        try:
+            settings = labeling.settings()
+            if _disable_labels_on_settings(settings):
+                labelings_cls = getattr(_qgis_core, 'QgsBasicVectorLayerLabeling', None)
+                if labelings_cls is None:
+                    labelings_cls = getattr(_qgis_core, 'QgsVectorLayerSimpleLabeling', None)
+                if labelings_cls is not None:
+                    layer.setLabeling(labelings_cls(settings))
+        except Exception:
+            pass
 
     def _relocate_layer(self, clone, provider_name, data_dir, used_names):
         src = clone.source()

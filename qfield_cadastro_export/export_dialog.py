@@ -73,7 +73,7 @@ class ExportDialog(QDialog):
     def __init__(self, iface, parent=None):
         super().__init__(parent)
         self.iface = iface
-        self.setWindowTitle('Exportar cadastro para o QField (v1.0.6)')
+        self.setWindowTitle('Exportar cadastro para o QField (v1.0.7)')
         self.setMinimumWidth(560)
         self._build_ui()
         self._populate_layers()
