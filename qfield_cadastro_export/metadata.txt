@@ -15,5 +15,5 @@ icon=icons/icon.png
 experimental=False
 deprecated=False
 tags=cadastre,qfield,mobile,export,android
-changelog=1.0.3 - Compatibilidade Qt6: QDialog.exec; 1.0.2 - Compatibilidade com Qt6 (QGIS 4.x): enums qualificados; 1.0.1 - Compatibilidade com QGIS 4.x (Beleim do Para); 1.0.0 - Versao inicial.
+changelog=1.0.3 - Compatibilidade Qt6: QDialog.exec; 1.0.2 - Compatibilidade com Qt6 (QGIS 4.x): enums qualificados; 1.0.1 - Compatibilidade com QGIS 4.x (Belém do Pará); 1.0.0 - Versao inicial.
 
