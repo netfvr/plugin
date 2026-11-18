@@ -6,11 +6,13 @@ from urllib.parse import quote, unquote, urlparse
 
 from qgis import core as _qgis_core
 from qgis.core import (
+    QgsApplication,
     QgsDataProvider,
     QgsLayerTreeGroup,
     QgsLayerTreeLayer,
     QgsPalLayerSettings,
     QgsProject,
+    QgsRenderContext,
     QgsVectorFileWriter,
     QgsVectorLayerExporter,
 )
@@ -37,6 +39,13 @@ def _disable_labels_on_settings(settings):
     return ok
 
 LOCAL_PROVIDERS = {'ogr', 'gdal', 'delimitedtext'}
+
+ICON_LAYER_SPECS = (
+    ('QgsSvgMarkerSymbolLayer', 'path', 'setPath'),
+    ('QgsRasterMarkerSymbolLayer', 'path', 'setPath'),
+    ('QgsSVGFillSymbolLayer', 'svgFilePath', 'setSvgFilePath'),
+    ('QgsRasterFillSymbolLayer', 'imageFilePath', 'setImageFilePath'),
+)
 
 SIDECAR_SUFFIXES = (
     '.prj', '.tfw', '.wld', '.ovr', '.rrd', '.aux.xml',
@@ -69,6 +78,7 @@ class Exporter:
         self.compact = compact
         self._gpkg_path = None
         self._gpkg_new = True
+        self._icon_names = set()
         self.warnings = []
         self.clones = {}
 
@@ -109,6 +119,9 @@ class Exporter:
                 pass
 
             self._prepare_layers(data_dir, new_proj)
+            for cloned in self.clones.values():
+                if hasattr(cloned, 'renderer'):
+                    self._export_layer_icons(cloned, data_dir)
             self._migrate_relations(new_proj)
             self._rebuild_tree(self.project.layerTreeRoot(), new_proj.layerTreeRoot())
 
@@ -183,6 +196,73 @@ class Exporter:
                 self._disable_labels(clone)
             new_proj.addMapLayer(clone, False)
             self.clones[layer] = clone
+
+    def _export_layer_icons(self, clone, data_dir):
+        try:
+            renderer = clone.renderer()
+            if renderer is None:
+                return
+            try:
+                symbols = renderer.symbols(QgsRenderContext())
+            except TypeError:
+                symbols = renderer.symbols()
+        except Exception:
+            return
+        if not symbols:
+            return
+        icon_dir = os.path.join(data_dir, 'svg')
+        try:
+            os.makedirs(icon_dir, exist_ok=True)
+        except Exception:
+            return
+        copied = 0
+        for sym in symbols:
+            try:
+                count = sym.symbolLayerCount()
+            except Exception:
+                continue
+            for i in range(count):
+                try:
+                    sl = sym.symbolLayer(i)
+                except Exception:
+                    continue
+                if sl is None:
+                    continue
+                for cls_name, getter, setter in ICON_LAYER_SPECS:
+                    cls = getattr(_qgis_core, cls_name, None)
+                    if cls is None or not isinstance(sl, cls):
+                        continue
+                    try:
+                        path = getattr(sl, getter)()
+                    except Exception:
+                        continue
+                    if not path or path.startswith('base64:') or '://' in path:
+                        continue
+                    icon_path = path
+                    if not os.path.isfile(icon_path):
+                        try:
+                            candidate = os.path.join(QgsApplication.svgPath(),
+                                                     path.lstrip('/').lstrip('\\'))
+                            if os.path.isfile(candidate):
+                                icon_path = candidate
+                            else:
+                                continue
+                        except Exception:
+                            continue
+                    dest = _unique_name(os.path.basename(icon_path), self._icon_names)
+                    try:
+                        shutil.copy2(icon_path, os.path.join(icon_dir, dest))
+                    except Exception:
+                        continue
+                    try:
+                        getattr(sl, setter)('data/svg/' + dest)
+                        copied += 1
+                    except Exception:
+                        pass
+        if copied:
+            self.warnings.append(
+                'Camada "' + clone.name() + '": ' + str(copied)
+                + ' icone(s) personalizados copiados para data/svg/.')
 
     def _migrate_relations(self, new_proj):
         try:
