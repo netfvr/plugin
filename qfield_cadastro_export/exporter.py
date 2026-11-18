@@ -40,7 +40,7 @@ def _disable_labels_on_settings(settings):
             continue
     return ok
 
-PLUGIN_VERSION = '1.1.5'
+PLUGIN_VERSION = '1.1.6'
 
 LOCAL_PROVIDERS = {'ogr', 'gdal', 'delimitedtext'}
 
@@ -259,10 +259,21 @@ class Exporter:
                         counts['layers'] += 1
 
             walk(tree)
+            try:
+                with open(qgs_path, 'r', encoding='utf-8') as fh:
+                    xml_text = fh.read()
+                label_tokens = xml_text.lower().count('<labeling')
+            except Exception:
+                label_tokens = -1
             self.check_summary = ('releitura OK: ' + str(len(layers))
                                   + ' camadas (' + str(len(invalid)) + ' invalidas), '
                                   + str(counts['groups']) + ' grupos, '
-                                  + str(counts['layers']) + ' nos na arvore')
+                                  + str(counts['layers']) + ' nos na arvore, '
+                                  + 'labels no XML: ' + str(label_tokens))
+            if label_tokens > 0:
+                self.warnings.append(
+                    'AVISO CRITICO: sobreviveram ' + str(label_tokens)
+                    + ' blocos de labeling no XML exportado.')
             if len(layers) != len(self.clones):
                 self.warnings.append(
                     'AVISO: projeto exportado tem ' + str(len(layers))
