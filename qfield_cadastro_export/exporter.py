@@ -40,7 +40,7 @@ def _disable_labels_on_settings(settings):
             continue
     return ok
 
-PLUGIN_VERSION = '1.2.0'
+PLUGIN_VERSION = '1.2.1'
 
 LOCAL_PROVIDERS = {'ogr', 'gdal', 'delimitedtext'}
 
@@ -166,9 +166,11 @@ class Exporter:
         for layer in self.layers:
             if layer is None:
                 continue
-            if self.drop_label_layers and LABEL_LAYER_PATTERN.search(layer.name() or ''):
+            src_part = (layer.source() or '').split('|', 1)
+            src_probe = (layer.name() or '') + ' ' + (src_part[1] if len(src_part) > 1 else '')
+            if self.drop_label_layers and LABEL_LAYER_PATTERN.search(src_probe):
                 self.warnings.append(
-                    'Camada de texto/etiquetas CAD "' + layer.name()
+                    'Camada de texto/etiquetas CAD "' + (layer.name() or layer.source())
                     + '" excluida (opcao de excluir subcamadas de labels ativa).')
                 continue
             if layer.type() == LayerType.AnnotationLayer:
