@@ -73,7 +73,7 @@ class ExportDialog(QDialog):
     def __init__(self, iface, parent=None):
         super().__init__(parent)
         self.iface = iface
-        self.setWindowTitle('Exportar cadastro para o QField (v1.0.9)')
+        self.setWindowTitle('Exportar cadastro para o QField (v1.1.0)')
         self.setMinimumWidth(560)
         self._build_ui()
         self._populate_layers()
@@ -108,10 +108,14 @@ class ExportDialog(QDialog):
         self.chk_remove_ann.setChecked(True)
         self.chk_create_zip = QCheckBox('Gerar ficheiro ZIP único para upload no telemóvel')
         self.chk_create_zip.setChecked(True)
+        self.chk_compact = QCheckBox(
+            'Modo compacto: guardar todos os vetores num único GeoPackage (recomendado para o telemóvel)')
+        self.chk_compact.setChecked(True)
         layout.addWidget(self.chk_copy_data)
         layout.addWidget(self.chk_remove_labels)
         layout.addWidget(self.chk_remove_ann)
         layout.addWidget(self.chk_create_zip)
+        layout.addWidget(self.chk_compact)
 
         out_row = QHBoxLayout()
         out_row.addWidget(QLabel('Pasta de destino:'))
@@ -129,6 +133,8 @@ class ExportDialog(QDialog):
             'Copia ficheiros locais (shapefile, GeoPackage, raster, CSV) para a pasta data/.')
         self.chk_remove_ann.setToolTip(
             'Exclui camadas de anotações do projeto exportado.')
+        self.chk_compact.setToolTip(
+            'Consolida todos os vetores num único GeoPackage — menos ficheiros e menos crashs no QField.')
 
         actions = QHBoxLayout()
         actions.addStretch(1)
@@ -235,6 +241,7 @@ class ExportDialog(QDialog):
             remove_labels=self.chk_remove_labels.isChecked(),
             remove_annotations=self.chk_remove_ann.isChecked(),
             create_zip=self.chk_create_zip.isChecked(),
+            compact=self.chk_compact.isChecked(),
         )
 
         QApplication.setOverrideCursor(CURSOR_WAIT)

@@ -11,6 +11,8 @@ from qgis.core import (
     QgsLayerTreeLayer,
     QgsPalLayerSettings,
     QgsProject,
+    QgsVectorFileWriter,
+    QgsVectorLayerExporter,
 )
 
 try:
@@ -55,7 +57,8 @@ def _unique_name(base, used):
 
 class Exporter:
     def __init__(self, project, layers, out_dir, copy_data=True,
-                 remove_labels=True, remove_annotations=True, create_zip=True):
+                 remove_labels=True, remove_annotations=True, create_zip=True,
+                 compact=True):
         self.project = project
         self.layers = layers
         self.out_dir = out_dir
@@ -63,6 +66,9 @@ class Exporter:
         self.remove_labels = remove_labels
         self.remove_annotations = remove_annotations
         self.create_zip = create_zip
+        self.compact = compact
+        self._gpkg_path = None
+        self._gpkg_new = True
         self.warnings = []
         self.clones = {}
 
@@ -164,7 +170,11 @@ class Exporter:
                 pass
             elif provider_name in LOCAL_PROVIDERS:
                 if self.copy_data:
-                    self._relocate_layer(clone, provider_name, data_dir, used_names)
+                    converted = False
+                    if self.compact and clone.type() == LayerType.VectorLayer:
+                        converted = self._compact_layer(clone, data_dir)
+                    if not converted:
+                        self._relocate_layer(clone, provider_name, data_dir, used_names)
             else:
                 self.warnings.append(
                     'Camada "' + layer.name() + '": fonte remota (' + provider_name
@@ -268,6 +278,74 @@ class Exporter:
                     layer.setLabeling(labelings_cls(settings))
         except Exception:
             pass
+
+    def _compact_layer(self, clone, data_dir):
+        try:
+            if self._gpkg_path is None:
+                self._gpkg_path = os.path.join(data_dir, 'dados_qfield.gpkg')
+            clean = re.sub(r'[^A-Za-z0-9_]+', '_', clone.name()).strip('_') or 'camada'
+            if clean[0].isdigit():
+                clean = 'L' + clean
+            base_clean = clean
+            n = 1
+            existing = ()
+            try:
+                from qgis.core import ogr
+                ds = ogr.Open(self._gpkg_path) if os.path.exists(self._gpkg_path) else None
+                if ds is not None:
+                    existing = [ds.GetLayerByIndex(i).GetName()
+                                for i in range(ds.GetLayerCount())]
+                    ds = None
+                while clean in existing:
+                    n += 1
+                    clean = '{}_{}'.format(base_clean, n)
+            except Exception:
+                pass
+            options = QgsVectorFileWriter.SaveVectorOptions()
+            options.driverName = 'GPKG'
+            options.layerName = clean
+            try:
+                action_cls = getattr(QgsVectorFileWriter, 'ActionOnExistingFile', None)
+                if action_cls is None:
+                    action_cls = QgsVectorFileWriter
+                options.actionOnExistingFile = (action_cls.CreateOrOverwriteFile
+                                                if self._gpkg_new
+                                                else action_cls.CreateOrOverwriteLayer)
+            except Exception:
+                options.actionOnExistingFile = getattr(QgsVectorFileWriter,
+                                                       'CreateOrOverwriteFile', None)
+            try:
+                export_err = QgsVectorLayerExporter.exportLayer(
+                    clone, self._gpkg_path, 'ogr', clone.crs(), True, options)
+            except Exception as err:
+                self.warnings.append(
+                    'Camada "' + clone.name() + '": conversao para GeoPackage falhou ('
+                    + str(err) + '); dados copiados em formato original.')
+                return False
+            err_code = export_err[0] if isinstance(export_err, tuple) else export_err
+            no_err = getattr(QgsVectorLayerExporter, 'NoError', None)
+            if no_err is not None and err_code != no_err:
+                self.warnings.append(
+                    'Camada "' + clone.name() + '": conversao para GeoPackage devolveu erro ('
+                    + str(err_code) + '); dados copiados em formato original.')
+                return False
+            self._gpkg_new = False
+            export_dir = os.path.dirname(data_dir)
+            rel_gpkg = os.path.join(os.path.relpath(data_dir, export_dir),
+                                    'dados_qfield.gpkg').replace('\\', '/')
+            options_ds = QgsDataProvider.ProviderOptions()
+            clone.setDataSource(rel_gpkg + '|layername=' + clean,
+                                clone.name(), 'ogr', options_ds, False)
+            if not clone.isValid():
+                self.warnings.append(
+                    'Camada "' + clone.name() + '": ficou invalida apos a conversao compacta.')
+                return False
+            return True
+        except Exception as err:
+            self.warnings.append(
+                'Camada "' + clone.name() + '": modo compacto falhou (' + str(err)
+                + '); usado formato original.')
+            return False
 
     def _relocate_layer(self, clone, provider_name, data_dir, used_names):
         src = clone.source()
