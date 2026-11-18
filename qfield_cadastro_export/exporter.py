@@ -4,6 +4,7 @@ import re
 import shutil
 from urllib.parse import quote, unquote, urlparse
 
+from qgis import core as _qgis_core
 from qgis.core import (
     QgsDataProvider,
     QgsLayerTreeGroup,
@@ -18,6 +19,17 @@ try:
 except ImportError:
     from qgis.core import QgsMapLayerType
     LayerType = QgsMapLayerType
+
+
+def _simple_labeling(settings):
+    for cls_name in ('QgsBasicVectorLayerLabeling', 'QgsVectorLayerSimpleLabeling'):
+        cls = getattr(_qgis_core, cls_name, None)
+        if cls is not None:
+            try:
+                return cls(settings)
+            except Exception:
+                continue
+    return settings
 
 LOCAL_PROVIDERS = {'ogr', 'gdal', 'delimitedtext'}
 
@@ -134,7 +146,17 @@ class Exporter:
                     + ') mantida como referencia externa.')
             if self.remove_labels and clone.type() == LayerType.VectorLayer:
                 clone.setLabelsEnabled(False)
-                clone.setLabeling(QgsPalLayerSettings())
+                settings = QgsPalLayerSettings()
+                try:
+                    settings.enabled = False
+                except Exception:
+                    pass
+                try:
+                    clone.setLabeling(_simple_labeling(settings))
+                except Exception as err:
+                    self.warnings.append(
+                        'Camada "' + clone.name() + '": etiquetas podem nao ter sido removidas ('
+                        + str(err) + ').')
             new_proj.addMapLayer(clone, False)
             self.clones[layer] = clone
 
