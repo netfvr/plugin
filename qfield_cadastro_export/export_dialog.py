@@ -20,6 +20,49 @@ from qgis.PyQt.QtWidgets import (
 
 from qgis.core import QgsLayerTreeGroup, QgsLayerTreeLayer, QgsProject
 
+if hasattr(Qt, 'CheckState'):
+    CHECKED = Qt.CheckState.Checked
+    UNCHECKED = Qt.CheckState.Unchecked
+    PARTIALLY = Qt.CheckState.PartiallyChecked
+else:
+    CHECKED = Qt.Checked
+    UNCHECKED = Qt.Unchecked
+    PARTIALLY = Qt.PartiallyChecked
+
+if hasattr(Qt, 'ItemFlag'):
+    FLAG_CHECKABLE = Qt.ItemFlag.ItemIsUserCheckable
+    FLAG_TRISTATE = Qt.ItemFlag.ItemIsAutoTristate
+    FLAG_ENABLED = Qt.ItemFlag.ItemIsEnabled
+else:
+    FLAG_CHECKABLE = Qt.ItemIsUserCheckable
+    FLAG_TRISTATE = Qt.ItemIsAutoTristate
+    FLAG_ENABLED = Qt.ItemIsEnabled
+
+if hasattr(Qt, 'ItemDataRole'):
+    ROLE_USER = Qt.ItemDataRole.UserRole
+else:
+    ROLE_USER = Qt.UserRole
+
+if hasattr(Qt, 'WindowModality'):
+    MODAL_WINDOW = Qt.WindowModality.WindowModal
+else:
+    MODAL_WINDOW = Qt.WindowModal
+
+if hasattr(Qt, 'CursorShape'):
+    CURSOR_WAIT = Qt.CursorShape.WaitCursor
+else:
+    CURSOR_WAIT = Qt.WaitCursor
+
+try:
+    HEADER_STRETCH = QHeaderView.ResizeMode.Stretch
+except AttributeError:
+    HEADER_STRETCH = QHeaderView.Stretch
+
+try:
+    ICON_INFO = QMessageBox.Icon.Information
+except AttributeError:
+    ICON_INFO = QMessageBox.Information
+
 
 class ExportDialog(QDialog):
     def __init__(self, iface, parent=None):
@@ -38,7 +81,7 @@ class ExportDialog(QDialog):
 
         self.layer_tree = QTreeWidget()
         self.layer_tree.setHeaderLabels(['Camada'])
-        self.layer_tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.layer_tree.header().setSectionResizeMode(0, HEADER_STRETCH)
         layout.addWidget(self.layer_tree, 1)
 
         btn_row = QHBoxLayout()
@@ -72,6 +115,13 @@ class ExportDialog(QDialog):
         out_row.addWidget(btn_browse)
         layout.addLayout(out_row)
 
+        self.chk_remove_labels.setToolTip(
+            'Desativa todas as etiquetas das camadas vetoriais no projeto exportado.')
+        self.chk_copy_data.setToolTip(
+            'Copia ficheiros locais (shapefile, GeoPackage, raster, CSV) para a pasta data/.')
+        self.chk_remove_ann.setToolTip(
+            'Exclui camadas de anotações do projeto exportado.')
+
         actions = QHBoxLayout()
         actions.addStretch(1)
         btn_export = QPushButton('Exportar')
@@ -100,20 +150,20 @@ class ExportDialog(QDialog):
         for child in node.children():
             if isinstance(child, QgsLayerTreeGroup):
                 item = QTreeWidgetItem([child.name()])
-                item.setFlags(item.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
-                item.setCheckState(0, Qt.Checked if child.itemVisibilityChecked() else Qt.Unchecked)
+                item.setFlags(item.flags() | FLAG_CHECKABLE | FLAG_TRISTATE)
+                item.setCheckState(0, CHECKED if child.itemVisibilityChecked() else UNCHECKED)
                 container.addChild(item)
                 self._add_tree_items(child, item, selection)
                 if item.childCount() == 0:
-                    item.setFlags(item.flags() & ~Qt.ItemIsEnabled)
+                    item.setFlags(item.flags() & ~FLAG_ENABLED)
             elif isinstance(child, QgsLayerTreeLayer):
                 layer = child.layer()
                 if layer is None:
                     continue
                 item = QTreeWidgetItem([layer.name()])
-                item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-                item.setCheckState(0, Qt.Checked if layer.id() in selection else Qt.Unchecked)
-                item.setData(0, Qt.UserRole, layer.id())
+                item.setFlags(item.flags() | FLAG_CHECKABLE)
+                item.setCheckState(0, CHECKED if layer.id() in selection else UNCHECKED)
+                item.setData(0, ROLE_USER, layer.id())
                 if hasattr(layer, 'publicSource'):
                     item.setToolTip(0, layer.publicSource())
                 container.addChild(item)
@@ -124,7 +174,7 @@ class ExportDialog(QDialog):
         def walk(item):
             for i in range(item.childCount()):
                 child = item.child(i)
-                child.setCheckState(0, Qt.Checked if state else Qt.Unchecked)
+                child.setCheckState(0, CHECKED if state else UNCHECKED)
                 walk(child)
 
         walk(root_item)
@@ -138,8 +188,8 @@ class ExportDialog(QDialog):
             for i in range(item.childCount()):
                 child = item.child(i)
                 stack.append(child)
-                layer_id = child.data(0, Qt.UserRole)
-                if layer_id and child.checkState(0) == Qt.Checked:
+                layer_id = child.data(0, ROLE_USER)
+                if layer_id and child.checkState(0) == CHECKED:
                     layer = project.mapLayer(layer_id)
                     if layer is not None:
                         layers.append(layer)
@@ -147,10 +197,13 @@ class ExportDialog(QDialog):
         return layers
 
     def _browse(self):
-        start = self.out_edit.text().strip() or os.path.expanduser('~')
-        chosen = QFileDialog.getExistingDirectory(self, 'Pasta de destino', start)
-        if chosen:
-            self.out_edit.setText(chosen)
+        try:
+            start = self.out_edit.text().strip() or os.path.expanduser('~')
+            chosen = QFileDialog.getExistingDirectory(self, 'Pasta de destino', start)
+            if chosen:
+                self.out_edit.setText(chosen)
+        except OSError:
+            pass
 
     def _run_export(self):
         layers = self._selected_layers()
@@ -175,9 +228,9 @@ class ExportDialog(QDialog):
             remove_annotations=self.chk_remove_ann.isChecked(),
         )
 
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(CURSOR_WAIT)
         progress = QProgressDialog('A exportar, aguarde…', None, 0, 0, self)
-        progress.setWindowModality(Qt.WindowModal)
+        progress.setWindowModality(MODAL_WINDOW)
         progress.setMinimumDuration(0)
         progress.show()
         QApplication.processEvents()
@@ -195,7 +248,7 @@ class ExportDialog(QDialog):
                    + 'e abra o ficheiro .qgs no QField.')
             if result['warnings']:
                 box = QMessageBox(self)
-                box.setIcon(QMessageBox.Information)
+                box.setIcon(ICON_INFO)
                 box.setWindowTitle('QField Cadastro Export')
                 box.setText(msg)
                 box.setDetailedText('\n'.join(result['warnings']))
